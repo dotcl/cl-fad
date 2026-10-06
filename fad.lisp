@@ -92,8 +92,8 @@ might also return files from *outside* the directory.  This works on
 all platforms.
 
   When FOLLOW-SYMLINKS is NIL, it should return the actual directory
-contents, which might include symlinks.  Currently this works on SBCL
-and CCL."
+contents, which might include symlinks.  Currently this works on SBCL,
+CCL and dotcl."
   (declare (ignorable follow-symlinks))
   (when (wild-pathname-p dirname)
     (error "Can only list concrete directory names."))
@@ -105,8 +105,8 @@ and CCL."
   #-(or :ecl :clasp)
   (let ((wildcard (directory-wildcard dirname)))
     #+:abcl (system::list-directory dirname)
-    #+:sbcl (directory wildcard :resolve-symlinks follow-symlinks)
-    #+(or :cmu :scl :dotcl) (directory wildcard)
+    #+(or :sbcl :dotcl) (directory wildcard :resolve-symlinks follow-symlinks)
+    #+(or :cmu :scl) (directory wildcard)
     #+:lispworks (directory wildcard :link-transparency follow-symlinks)
     #+(or :openmcl :digitool) (directory wildcard :directories t :follow-links follow-symlinks)
     #+:allegro (directory wildcard :directories-are-files nil)
@@ -274,7 +274,8 @@ DIRNAME does not exist.
 
 NOTE: this function is dangerous if the directory that you are
 removing contains symlinks to files outside of it - the target files
-might be removed instead!  This is currently fixed for SBCL and CCL."
+might be removed instead!  This is currently fixed for SBCL, CCL and
+dotcl."
 
   #+:allegro (excl.osi:delete-directory-and-files dirname
                                                   :if-does-not-exist if-does-not-exist)
@@ -286,6 +287,13 @@ might be removed instead!  This is currently fixed for SBCL and CCL."
         (:error  (error "~S is not a directory" dirname))
         (:ignore nil)))
 
+  #+:dotcl
+  (if (directory-exists-p dirname)
+      (dotcl:delete-directory dirname :recursive t)
+      (ecase if-does-not-exist
+        (:error  (error "~S is not a directory" dirname))
+        (:ignore nil)))
+
   #+:ccl-has-delete-directory
   (if (directory-exists-p dirname)
       (ccl:delete-directory dirname)
@@ -293,7 +301,7 @@ might be removed instead!  This is currently fixed for SBCL and CCL."
         (:error  (error "~S is not a directory" dirname))
         (:ignore nil)))
 
-  #-(or :allegro :sbcl :ccl-has-delete-directory)
+  #-(or :allegro :sbcl :dotcl :ccl-has-delete-directory)
   (walk-directory dirname
                   (lambda (file)
                     (cond ((directory-pathname-p file)
